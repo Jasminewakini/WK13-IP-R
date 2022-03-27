@@ -1,0 +1,233 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+## Hierarchical Clustering
+```{r}
+library(tidyr)  # data manipulation
+library(cluster)    # clustering algorithms
+library(factoextra) # clustering visualization
+library(dendextend)# for comparing two dendrograms
+library(purrr)
+
+
+
+X <- econ_final[, c(1, 2, 3, 4,5,6,7,8,9,10,12,13,14,15)]
+y <- econ_final[, "Revenue"]
+
+head(X)
+
+```
+
+```{r}
+
+# Normalizing the dataset so that no particular attribute 
+# has more impact on clustering algorithm than others.
+# ---
+# 
+
+X_Norm <- as.data.frame(scale(X))
+head(X_Norm)
+```
+
+```{R}
+# Similarity measures
+# Compute the dissimilarity matrix
+# X_Norm = the scaled data
+# ------
+
+# First we use the dist() function to compute the Euclidean distance between observations, 
+# d will be the first argument in the hclust() function dissimilarity matrix
+# ---
+#
+d <- dist(X_Norm, method = "euclidean")
+
+```
+
+
+```{R}
+# Linkage
+# We then hierarchical clustering using the complete method
+# ---
+# 
+res.hc <- hclust(d, method = "complete")
+
+
+```
+
+
+```{R}
+# We plot the obtained dendrogram
+# ---
+# 
+plot(res.hc, cex = 0.6, hang = -1)
+
+
+```
+
+
+
+
+```{R}
+# Similar to before we can visualize the dendrogram:
+# ---
+# 
+
+# apply hierarchical clustering
+hc3 <- hclust(d, method = "ward.D")
+
+#Plot the dendrogram
+plot(hc3, cex = 0.6, hang = -1, main = "Dendrogram of agnes") 
+
+
+```
+
+The method Ward is giving us a much better visualization of the data than complete.
+
+```{R}
+# The height of the cut to the dendrogram controls the number of clusters obtained. It plays the same role as the k in k-means clustering. In order to identify sub-groups (i.e. clusters), we can cut the dendrogram with cutree:
+# ---
+
+# Compute cophentic distance
+res.coph <- cophenetic(hc3)
+
+# Correlation between cophenetic distance and
+# the original distance
+cor(d, res.coph)
+
+```
+
+
+```{R}
+# Execute the hclust() function again using the average linkage method. Next, call cophenetic() to evaluate the clustering solution.
+# --------
+
+res.hc2 <- hclust(d, method = "average")
+
+cor(d, cophenetic(res.hc2))
+
+
+```
+
+The correlation coefficient shows that using the linkage method avaerage, creates a tree that represents the original distances much better.
+
+### Cut the dendrogram into different groups
+```{R}
+# The height of the cut to the dendrogram controls the number of clusters obtained. It plays the same role as the k in k-means clustering. In order to identify sub-groups (i.e. clusters), we can cut the dendrogram with cutree:
+# ---
+
+# Ward's method
+hc5 <- hclust(d, method = "ward.D" )
+
+# Cut tree into 4 groups
+sub_grp <- cutree(hc5, k = 4)
+
+# Number of members in each cluster
+table(sub_grp)
+
+
+```
+
+```{R}
+# Get the names for the members of cluster 2
+
+rownames(X_Norm)[sub_grp == 1]
+
+
+```
+
+
+```{R}
+# We can also use the cutree output to add the the cluster each observation belongs to to our original data.
+# ---
+
+library(dplyr)
+econ_final %>%
+  mutate(cluster = sub_grp) %>%
+  head
+  
+```
+
+
+```{R}
+# It’s also possible to draw the dendrogram with a border around the 4 clusters. The argument border is used to specify the border colors for the rectangles:
+# ---
+plot(hc5, cex = 0.6)
+rect.hclust(hc5, k = 4, border = 2:5)
+cutree(hc5, h = 50)
+
+```
+
+
+```{R}
+#  we can also use the fviz_cluster function from the factoextra package to visualize the result in a scatter plot.
+# ---
+fviz_cluster(list(data = X_Norm, cluster = sub_grp))
+  
+```
+
+## Challenging the solution
+### Determining Optimal Clusters
+```{R}
+## Elbow Method
+# ---
+fviz_nbclust(X_Norm, FUN = hcut, method = "wss")
+
+```
+
+
+```{R}
+## Average Silhouette Method
+# ---
+fviz_nbclust(X_Norm, FUN = hcut, method = "silhouette")
+
+```
+
+
+```{R}
+## Gap Statistic Method
+# ---
+# gap_stat <- clusGap(X_Norm, FUN = hcut, nstart = 25, K.max = 10, B = 50)
+# fviz_gap_stat(gap_stat)
+
+```
+
+Getting the gap statistic with this data set was quite difficult
+
+```{R}
+# To use cutree with agnes
+# ---
+# Cut agnes() tree into 2 groups
+
+# Ward's method
+hcb <- hclust(d, method = "ward.D" )
+
+# Cut tree into 4 groups
+final <- cutree(hcb, k = 2)
+
+fviz_cluster(list(data = X_Norm, cluster = final)) 
+```
+
+##Comaprison between K-means and Hieararchical Clustering
+###Disadvantages of K-mean Clustering
+
+1) Difficult to predict the number of clusters (K-�‐Value) •IniHal seeds have a strong impact on the final results
+2) The order of the data has an impact on the final results
+
+3) SensiHve to scale: rescaling your datasets (normalizaHon or standardizaHon) will completely change results. While this itself is not bad, not realizing that you have to spend extra a4en(on to scaling your data might be bad.
+
+###Disadvantages of Hierarchical Clustering
+
+1) It is not possible to undo the previous step: once the instances have been assigned to a cluster, they can no longer be moved around.
+2) Time complexity: not suitable for large datasets •IniHal seeds have a strong impact on the final results
+3) The order of the data has an impact on the final results
+4) Very sensitive to outlier
+
+
+
+
+
+
+
+
